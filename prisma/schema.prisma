@@ -1,0 +1,21 @@
+generator client {
+    provider = "prisma-client"
+    output   = "../src/generated/prisma"
+}
+
+datasource db {
+    provider = "postgresql"
+}
+
+model FeedEvent {
+    id         String   @id @default(cuid())
+    source     String
+    category   String?
+    lat        Float?
+    lng        Float?
+    payload    Json
+    recordedAt DateTime
+    createdAt  DateTime @default(now())
+
+    @@index([source, recordedAt])
+}
