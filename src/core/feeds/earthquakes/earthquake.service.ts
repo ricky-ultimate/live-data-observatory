@@ -1,3 +1,4 @@
+import { Prisma } from "../../../generated/prisma/client";
 import db from "../../../config/db.config";
 import { createHttpClient } from "../../../utils/http.utils";
 import logger from "../../../utils/logger.utils";
@@ -40,21 +41,23 @@ export const fetchAndPersistEarthquakes = async (): Promise<void> => {
 
   const normalized = features.map(normalize);
 
-  const existingIds = await db.feedEvent.findMany({
+  const windowStart = new Date(Date.now() - 2 * 60 * 60 * 1000);
+
+  const existingEvents = await db.feedEvent.findMany({
     where: {
       source: SOURCE,
-      payload: {
-        path: ["externalId"],
-        not: null,
-      },
+      recordedAt: { gte: windowStart },
     },
     select: { payload: true },
   });
 
   const seenIds = new Set(
-    existingIds
-      .map((e) => (e.payload as Record<string, unknown>)["externalId"] as string)
-      .filter(Boolean)
+    existingEvents
+      .map((e) => {
+        const p = e.payload as Record<string, unknown>;
+        return typeof p["externalId"] === "string" ? p["externalId"] : null;
+      })
+      .filter((id): id is string => id !== null)
   );
 
   const newEvents = normalized.filter((eq) => !seenIds.has(eq.externalId));
@@ -69,7 +72,7 @@ export const fetchAndPersistEarthquakes = async (): Promise<void> => {
       source: SOURCE,
       lat: eq.lat,
       lng: eq.lng,
-      payload: eq as unknown as Record<string, unknown>,
+      payload: eq as unknown as Prisma.InputJsonValue,
       recordedAt: eq.recordedAt,
     })),
   });
