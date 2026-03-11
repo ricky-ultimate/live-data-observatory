@@ -10,6 +10,7 @@ import logger from "./utils/logger.utils";
 import { initWebSocketServer } from "./websocket/ws.server";
 import { startAllSchedulers } from "./scheduler";
 import earthquakeRoutes from "./core/feeds/earthquakes/earthquake.routes";
+import spaceWeatherRoutes from "./core/feeds/space-weather/space-weather.routes";
 
 const app = express();
 
@@ -20,6 +21,7 @@ app.use(express.urlencoded({ extended: false }));
 app.use(morgan("dev"));
 
 app.use(ROUTES.EARTHQUAKES, earthquakeRoutes);
+app.use(ROUTES.SPACE_WEATHER, spaceWeatherRoutes);
 
 app.get(ROUTES.BASE, (_req, res) => {
   res.status(200).json({ status: "Live Data Observatory running" });
