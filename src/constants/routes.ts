@@ -5,4 +5,5 @@ export const ROUTES = {
   SPACE_WEATHER: "/api/feeds/space-weather",
   VOLCANOES: "/api/feeds/volcanoes",
   CONFLICT: "/api/feeds/conflict",
+  ASTEROIDS: "/api/feeds/asteroids",
 };
