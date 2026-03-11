@@ -13,29 +13,6 @@ export interface GDELTArticleResponse {
   articles: GDELTArticle[] | null;
 }
 
-export interface GDELTGeoProperties {
-  name: string;
-  url: string;
-  urltone: number;
-  domain: string;
-  count: number;
-  sharewt: number;
-}
-
-export interface GDELTGeoFeature {
-  type: "Feature";
-  geometry: {
-    type: "Point";
-    coordinates: [number, number];
-  };
-  properties: GDELTGeoProperties;
-}
-
-export interface GDELTGeoResponse {
-  type: "FeatureCollection";
-  features: GDELTGeoFeature[] | null;
-}
-
 export interface NormalizedConflictArticle {
   externalId: string;
   title: string;
@@ -44,17 +21,5 @@ export interface NormalizedConflictArticle {
   sourcecountry: string;
   language: string;
   seendate: string;
-  recordedAt: Date;
-}
-
-export interface NormalizedConflictGeo {
-  externalId: string;
-  locationName: string;
-  lat: number;
-  lng: number;
-  url: string;
-  domain: string;
-  mentionCount: number;
-  tone: number;
   recordedAt: Date;
 }

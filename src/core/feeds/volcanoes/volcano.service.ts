@@ -13,7 +13,7 @@ const CATEGORY = {
   MONITORED: "monitored",
 } as const;
 
-const httpClient = createHttpClient(USGS_BASE_URL);
+const httpClient = createHttpClient(USGS_BASE_URL, 20000);
 
 const normalize = (v: USGSVolcanoResponse[number]): NormalizedVolcano => ({
   externalId: v.vnum,

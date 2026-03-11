@@ -5,11 +5,8 @@ import logger from "../../../utils/logger.utils";
 import { broadcast } from "../../../websocket/ws.server";
 import {
   GDELTArticleResponse,
-  GDELTGeoResponse,
-  GDELTGeoFeature,
   GDELTArticle,
   NormalizedConflictArticle,
-  NormalizedConflictGeo,
 } from "./conflict.types";
 
 const GDELT_BASE_URL = "https://api.gdeltproject.org";
@@ -17,7 +14,6 @@ const SOURCE = "conflict";
 
 const CATEGORY = {
   ARTICLES: "articles",
-  GEO: "geo",
 } as const;
 
 const CONFLICT_QUERY = encodeURIComponent("Israel Iran missile strike attack");
@@ -44,23 +40,6 @@ const normalizeArticle = (article: GDELTArticle): NormalizedConflictArticle => (
   recordedAt: parseSeenDate(article.seendate),
 });
 
-const normalizeGeo = (feature: GDELTGeoFeature): NormalizedConflictGeo => {
-  const [lng, lat] = feature.geometry.coordinates;
-  return {
-    externalId: `geo_${Buffer.from(feature.properties.name + feature.properties.url)
-      .toString("base64")
-      .slice(0, 32)}`,
-    locationName: feature.properties.name,
-    lat,
-    lng,
-    url: feature.properties.url,
-    domain: feature.properties.domain,
-    mentionCount: feature.properties.count,
-    tone: feature.properties.urltone,
-    recordedAt: new Date(),
-  };
-};
-
 const getSeenIds = async (category: string, windowMs: number): Promise<Set<string>> => {
   const since = new Date(Date.now() - windowMs);
 
@@ -85,23 +64,17 @@ const getSeenIds = async (category: string, windowMs: number): Promise<Set<strin
 
 const persistAndBroadcast = async (
   category: string,
-  events: (NormalizedConflictArticle | NormalizedConflictGeo)[],
-  getLatLng?: (e: NormalizedConflictArticle | NormalizedConflictGeo) => { lat?: number; lng?: number }
+  events: NormalizedConflictArticle[]
 ): Promise<void> => {
   if (!events.length) return;
 
   await db.feedEvent.createMany({
-    data: events.map((event) => {
-      const geo = getLatLng?.(event) ?? {};
-      return {
-        source: SOURCE,
-        category,
-        lat: geo.lat ?? null,
-        lng: geo.lng ?? null,
-        payload: event as unknown as Prisma.InputJsonValue,
-        recordedAt: event.recordedAt,
-      };
-    }),
+    data: events.map((event) => ({
+      source: SOURCE,
+      category,
+      payload: event as unknown as Prisma.InputJsonValue,
+      recordedAt: event.recordedAt,
+    })),
   });
 
   logger("INFO", `[${SOURCE}/${category}] Persisted ${events.length} new events`);
@@ -112,18 +85,23 @@ const withRetry = async <T>(
   fn: () => Promise<T>,
   label: string,
   retries = 2,
-  delayMs = 5000
+  delayMs = 15000
 ): Promise<T | null> => {
   for (let attempt = 1; attempt <= retries; attempt++) {
     try {
       return await fn();
-    } catch (err) {
+    } catch (err: unknown) {
       const isLast = attempt === retries;
+      const status =
+        err && typeof err === "object" && "response" in err
+          ? (err as { response?: { status?: number } }).response?.status
+          : undefined;
+      const waitMs = status === 429 ? 30000 : delayMs;
       logger(
         "WARN",
-        `[${label}] Attempt ${attempt}/${retries} failed${isLast ? ", giving up" : `, retrying in ${delayMs}ms`}`
+        `[${label}] Attempt ${attempt}/${retries} failed (status: ${status ?? "timeout"})${isLast ? ", giving up" : `, retrying in ${waitMs}ms`}`
       );
-      if (!isLast) await new Promise((res) => setTimeout(res, delayMs));
+      if (!isLast) await new Promise((res) => setTimeout(res, waitMs));
     }
   }
   return null;
@@ -159,7 +137,6 @@ export const fetchAndPersistConflictArticles = async (timespan = "15min"): Promi
     logger("INFO", "[conflict/articles] No new articles since last poll");
   }
 };
-
 
 export const getRecentConflictArticles = async (hours = 24) => {
   const since = new Date(Date.now() - hours * 60 * 60 * 1000);
