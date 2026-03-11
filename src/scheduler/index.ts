@@ -13,8 +13,7 @@ import {
   fetchAndPersistMonitoredVolcanoes,
 } from "../core/feeds/volcanoes/volcano.service";
 import {
-  fetchAndPersistConflictArticles,
-  fetchAndPersistConflictGeo,
+  fetchAndPersistConflictArticles
 } from "../core/feeds/conflict/conflict.service";
 import logger from "../utils/logger.utils";
 
@@ -28,9 +27,10 @@ const runInitialIngests = async (): Promise<void> => {
       fetchAndPersistSpaceWeatherAlerts(),
       fetchAndPersistElevatedVolcanoes(),
       fetchAndPersistMonitoredVolcanoes(),
-      fetchAndPersistConflictArticles("1h"),
-      fetchAndPersistConflictGeo("1h"),
     ]);
+
+    await fetchAndPersistConflictArticles("24h");
+
     logger("INFO", "Initial ingests complete");
   } catch (err) {
     logger("ERROR", "Initial ingest run failed", err);

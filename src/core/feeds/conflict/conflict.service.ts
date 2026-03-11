@@ -20,14 +20,11 @@ const CATEGORY = {
   GEO: "geo",
 } as const;
 
-const CONFLICT_QUERY = encodeURIComponent(
-  "(Iran OR Israel OR Houthi OR Gaza OR Yemen) (missile OR strike OR attack OR drone OR airstrike)"
-);
+const CONFLICT_QUERY = encodeURIComponent("Israel Iran missile strike attack");
 
-const httpClient = createHttpClient(GDELT_BASE_URL, 15000);
+const httpClient = createHttpClient(GDELT_BASE_URL, 30000);
 
 const parseSeenDate = (seendate: string): Date => {
-  // Format: 20240101T120000Z
   const cleaned = seendate.replace(
     /^(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})Z$/,
     "$1-$2-$3T$4:$5:$6Z"
@@ -111,11 +108,38 @@ const persistAndBroadcast = async (
   events.forEach((event) => broadcast(`${SOURCE}/${category}`, event));
 };
 
+const withRetry = async <T>(
+  fn: () => Promise<T>,
+  label: string,
+  retries = 2,
+  delayMs = 5000
+): Promise<T | null> => {
+  for (let attempt = 1; attempt <= retries; attempt++) {
+    try {
+      return await fn();
+    } catch (err) {
+      const isLast = attempt === retries;
+      logger(
+        "WARN",
+        `[${label}] Attempt ${attempt}/${retries} failed${isLast ? ", giving up" : `, retrying in ${delayMs}ms`}`
+      );
+      if (!isLast) await new Promise((res) => setTimeout(res, delayMs));
+    }
+  }
+  return null;
+};
+
 export const fetchAndPersistConflictArticles = async (timespan = "15min"): Promise<void> => {
   const url = `/api/v2/doc/doc?query=${CONFLICT_QUERY}&mode=artlist&format=json&maxrecords=250&sort=datedesc&timespan=${timespan}`;
 
-  const response = await httpClient.get<GDELTArticleResponse>(url);
-  const articles = response.data.articles;
+  const result = await withRetry(
+    () => httpClient.get<GDELTArticleResponse>(url),
+    "conflict/articles"
+  );
+
+  if (!result) return;
+
+  const articles = result.data.articles;
 
   if (!articles || !articles.length) {
     logger("INFO", "[conflict/articles] No articles returned from GDELT");
@@ -136,37 +160,6 @@ export const fetchAndPersistConflictArticles = async (timespan = "15min"): Promi
   }
 };
 
-export const fetchAndPersistConflictGeo = async (timespan = "15min"): Promise<void> => {
-  const url = `/api/v2/geo/geo?query=${CONFLICT_QUERY}&mode=pointdata&format=json&timespan=${timespan}`;
-
-  const response = await httpClient.get<GDELTGeoResponse>(url);
-  const features = response.data.features;
-
-  if (!features || !features.length) {
-    logger("INFO", "[conflict/geo] No geo features returned from GDELT");
-    return;
-  }
-
-  const windowMs = 30 * 60 * 1000;
-  const seenIds = await getSeenIds(CATEGORY.GEO, windowMs);
-
-  const normalized = features
-    .map(normalizeGeo)
-    .filter((g) => !seenIds.has(g.externalId));
-
-  await persistAndBroadcast(
-    CATEGORY.GEO,
-    normalized,
-    (e) => {
-      const g = e as NormalizedConflictGeo;
-      return { lat: g.lat, lng: g.lng };
-    }
-  );
-
-  if (!normalized.length) {
-    logger("INFO", "[conflict/geo] No new geo points since last poll");
-  }
-};
 
 export const getRecentConflictArticles = async (hours = 24) => {
   const since = new Date(Date.now() - hours * 60 * 60 * 1000);
@@ -178,18 +171,5 @@ export const getRecentConflictArticles = async (hours = 24) => {
     },
     orderBy: { recordedAt: "desc" },
     take: 250,
-  });
-};
-
-export const getRecentConflictGeo = async (hours = 6) => {
-  const since = new Date(Date.now() - hours * 60 * 60 * 1000);
-  return db.feedEvent.findMany({
-    where: {
-      source: SOURCE,
-      category: CATEGORY.GEO,
-      recordedAt: { gte: since },
-    },
-    orderBy: { recordedAt: "desc" },
-    take: 500,
   });
 };
