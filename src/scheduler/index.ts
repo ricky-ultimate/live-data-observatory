@@ -2,6 +2,7 @@ import { startEarthquakeScheduler } from "../core/feeds/earthquakes/earthquake.s
 import { startSpaceWeatherScheduler } from "../core/feeds/space-weather/space-weather.scheduler";
 import { startVolcanoScheduler } from "../core/feeds/volcanoes/volcano.scheduler";
 import { startConflictScheduler } from "../core/feeds/conflict/conflict.scheduler";
+import { startAsteroidScheduler } from "../core/feeds/asteroids/asteroid.scheduler";
 import { fetchAndPersistEarthquakes } from "../core/feeds/earthquakes/earthquake.service";
 import {
   fetchAndPersistSolarWind,
@@ -13,6 +14,7 @@ import {
   fetchAndPersistMonitoredVolcanoes,
 } from "../core/feeds/volcanoes/volcano.service";
 import { fetchAndPersistConflictArticles } from "../core/feeds/conflict/conflict.service";
+import { fetchAndPersistAsteroids } from "../core/feeds/asteroids/asteroid.service";
 import logger from "../utils/logger.utils";
 
 const delay = (ms: number): Promise<void> => new Promise((res) => setTimeout(res, ms));
@@ -27,6 +29,7 @@ const runInitialIngests = async (): Promise<void> => {
       fetchAndPersistSpaceWeatherAlerts(),
       fetchAndPersistElevatedVolcanoes(),
       fetchAndPersistMonitoredVolcanoes(),
+      fetchAndPersistAsteroids(),
     ]);
 
     await delay(5000);
@@ -43,6 +46,7 @@ export const startAllSchedulers = (): void => {
   startSpaceWeatherScheduler();
   startVolcanoScheduler();
   startConflictScheduler();
+  startAsteroidScheduler();
   logger("INFO", "All schedulers started");
   runInitialIngests();
 };
