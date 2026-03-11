@@ -13,11 +13,8 @@ import {
   fetchAndPersistElevatedVolcanoes,
   fetchAndPersistMonitoredVolcanoes,
 } from "../core/feeds/volcanoes/volcano.service";
-import { fetchAndPersistConflictArticles } from "../core/feeds/conflict/conflict.service";
 import { fetchAndPersistAsteroids } from "../core/feeds/asteroids/asteroid.service";
 import logger from "../utils/logger.utils";
-
-const delay = (ms: number): Promise<void> => new Promise((res) => setTimeout(res, ms));
 
 const runInitialIngests = async (): Promise<void> => {
   logger("INFO", "Running initial ingests on boot");
@@ -31,10 +28,6 @@ const runInitialIngests = async (): Promise<void> => {
       fetchAndPersistMonitoredVolcanoes(),
       fetchAndPersistAsteroids(),
     ]);
-
-    await delay(5000);
-    await fetchAndPersistConflictArticles("1h");
-
     logger("INFO", "Initial ingests complete");
   } catch (err) {
     logger("ERROR", "Initial ingest run failed", err);
