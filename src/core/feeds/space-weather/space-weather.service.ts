@@ -77,7 +77,7 @@ export const fetchAndPersistSolarWind = async (): Promise<void> => {
   );
 
   const rows = response.data.slice(1);
-  const windowMs = 15 * 60 * 1000;
+  const windowMs = 2 * 60 * 60 * 1000;
   const cutoff = new Date(Date.now() - windowMs);
 
   const recent = rows.filter((row) => new Date(row[0] + "Z") >= cutoff);
