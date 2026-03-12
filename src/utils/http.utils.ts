@@ -1,7 +1,10 @@
 import axios, { AxiosInstance, AxiosError } from "axios";
 import logger from "./logger.utils";
 
-export const createHttpClient = (baseURL: string, timeoutMs = 10000): AxiosInstance => {
+export const createHttpClient = (
+  baseURL: string,
+  timeoutMs = 10000,
+): AxiosInstance => {
   const client = axios.create({
     baseURL,
     timeout: timeoutMs,
@@ -13,12 +16,14 @@ export const createHttpClient = (baseURL: string, timeoutMs = 10000): AxiosInsta
   client.interceptors.response.use(
     (response) => response,
     (error: AxiosError) => {
-      logger("ERROR", `HTTP request failed: ${error.message}`, {
+      const status = error.response?.status;
+      const level = status && status < 500 ? "WARN" : "ERROR";
+      logger(level, `HTTP request failed: ${error.message}`, {
         url: error.config?.url,
-        status: error.response?.status,
+        status,
       });
       return Promise.reject(error);
-    }
+    },
   );
 
   return client;
