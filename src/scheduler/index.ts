@@ -2,6 +2,7 @@ import { startEarthquakeScheduler } from "../core/feeds/earthquakes/earthquake.s
 import { startSpaceWeatherScheduler } from "../core/feeds/space-weather/space-weather.scheduler";
 import { startVolcanoScheduler } from "../core/feeds/volcanoes/volcano.scheduler";
 import { startConflictScheduler } from "../core/feeds/conflict/conflict.scheduler";
+import { fetchAndPersistConflictArticles } from "../core/feeds/conflict/conflict.service";
 import { startAsteroidScheduler } from "../core/feeds/asteroids/asteroid.scheduler";
 import { fetchAndPersistEarthquakes } from "../core/feeds/earthquakes/earthquake.service";
 import {
@@ -27,6 +28,7 @@ const runInitialIngests = async (): Promise<void> => {
       fetchAndPersistElevatedVolcanoes(),
       fetchAndPersistMonitoredVolcanoes(),
       fetchAndPersistAsteroids(),
+      fetchAndPersistConflictArticles("1d"),
     ]);
     logger("INFO", "Initial ingests complete");
   } catch (err) {
