@@ -3,8 +3,10 @@ import db from "../../../config/db.config";
 import { createHttpClient } from "../../../utils/http.utils";
 import logger from "../../../utils/logger.utils";
 import { broadcast } from "../../../websocket/ws.server";
-import { USGSVolcanoResponse, NormalizedVolcano } from "./volcano.types";
+import { USGSVolcanoResponse, NormalizedVolcano, USGSVolcano } from "./volcano.types";
 import { withRetry } from "../../../utils/retry.utils";
+import https from "https"
+import crypto from "crypto";
 
 const USGS_BASE_URL = "https://volcanoes.usgs.gov";
 const SOURCE = "volcano";
@@ -14,19 +16,23 @@ const CATEGORY = {
   MONITORED: "monitored",
 } as const;
 
-const httpClient = createHttpClient(USGS_BASE_URL, 35000);
+const volcanoAgent = new https.Agent({
+  secureOptions: crypto.constants.SSL_OP_ALLOW_UNSAFE_LEGACY_RENEGOTIATION,
+});
 
-const normalize = (v: USGSVolcanoResponse[number]): NormalizedVolcano => ({
+const httpClient = createHttpClient(USGS_BASE_URL, 35000, volcanoAgent);
+
+const normalize = (v: USGSVolcano): NormalizedVolcano => ({
   externalId: v.vnum,
-  name: v.volcanoName,
+  name: v.volcano_name,
   vnum: v.vnum,
-  colorCode: v.colorCode ?? null,
-  alertLevel: v.alertLevel ?? null,
-  lat: v.latitude ?? null,
-  lng: v.longitude ?? null,
-  state: v.state ?? null,
-  region: v.region ?? null,
-  updatedAt: v.updateTime ?? null,
+  colorCode: v.color_code ?? null,
+  alertLevel: v.alert_level ?? null,
+  lat: null,
+  lng: null,
+  state: null,
+  region: null,
+  updatedAt: v.sent_utc ?? null,
   recordedAt: new Date(),
 });
 

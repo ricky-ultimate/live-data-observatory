@@ -5,12 +5,18 @@ import logger from "../../../utils/logger.utils";
 import { broadcast } from "../../../websocket/ws.server";
 import { NeoWsFeedResponse, NeoWsAsteroid, NormalizedAsteroid } from "./asteroid.types";
 import { withRetry } from "../../../utils/retry.utils";
+import https from "https";
+import crypto from "crypto";
 
 const NASA_BASE_URL = "https://api.nasa.gov";
-const NASA_API_KEY = "DEMO_KEY";
+const NASA_API_KEY = process.env.NASA_API_KEY ?? "DEMO_KEY";
 const SOURCE = "asteroid";
 
-const httpClient = createHttpClient(NASA_BASE_URL, 30000);
+const nasaAgent = new https.Agent({
+  secureOptions: crypto.constants.SSL_OP_ALLOW_UNSAFE_LEGACY_RENEGOTIATION,
+});
+
+const httpClient = createHttpClient(NASA_BASE_URL, 30000, nasaAgent);
 
 const formatDate = (date: Date): string => date.toISOString().split("T")[0];
 

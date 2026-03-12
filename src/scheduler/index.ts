@@ -28,7 +28,7 @@ const runInitialIngests = async (): Promise<void> => {
       fetchAndPersistElevatedVolcanoes(),
       fetchAndPersistMonitoredVolcanoes(),
       fetchAndPersistAsteroids(),
-      fetchAndPersistConflictArticles("1d"),
+      fetchAndPersistConflictArticles("15min"),
     ]);
     logger("INFO", "Initial ingests complete");
   } catch (err) {

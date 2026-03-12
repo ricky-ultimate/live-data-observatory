@@ -1,14 +1,14 @@
 export interface USGSVolcano {
-  volcanoName: string;
+  volcano_name: string;
   vnum: string;
-  volcanoCd: string;
-  colorCode: "GREEN" | "YELLOW" | "ORANGE" | "RED" | "UNASSIGNED" | null;
-  alertLevel: "NORMAL" | "ADVISORY" | "WATCH" | "WARNING" | "UNASSIGNED" | null;
-  latitude: number | null;
-  longitude: number | null;
-  state: string | null;
-  region: string | null;
-  updateTime: string | null;
+  color_code: "GREEN" | "YELLOW" | "ORANGE" | "RED" | "UNASSIGNED" | null;
+  alert_level: "NORMAL" | "ADVISORY" | "WATCH" | "WARNING" | "UNASSIGNED" | null;
+  obs_fullname: string;
+  obs_abbr: string;
+  sent_utc: string;
+  sent_unixtime: number;
+  notice_url: string;
+  notice_data: string;
 }
 
 export type USGSVolcanoResponse = USGSVolcano[];
