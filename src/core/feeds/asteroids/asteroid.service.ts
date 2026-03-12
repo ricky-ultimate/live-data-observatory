@@ -9,7 +9,7 @@ const NASA_BASE_URL = "https://api.nasa.gov";
 const NASA_API_KEY = "DEMO_KEY";
 const SOURCE = "asteroid";
 
-const httpClient = createHttpClient(NASA_BASE_URL, 15000);
+const httpClient = createHttpClient(NASA_BASE_URL, 30000);
 
 const formatDate = (date: Date): string => date.toISOString().split("T")[0];
 
@@ -35,6 +35,27 @@ const normalize = (asteroid: NeoWsAsteroid): NormalizedAsteroid | null => {
   };
 };
 
+const withRetry = async <T>(
+  fn: () => Promise<T>,
+  label: string,
+  retries = 2,
+  delayMs = 8000
+): Promise<T | null> => {
+  for (let attempt = 1; attempt <= retries; attempt++) {
+    try {
+      return await fn();
+    } catch (err: unknown) {
+      const isLast = attempt === retries;
+      logger(
+        "WARN",
+        `[${label}] Attempt ${attempt}/${retries} failed${isLast ? ", giving up" : `, retrying in ${delayMs}ms`}`
+      );
+      if (!isLast) await new Promise((res) => setTimeout(res, delayMs));
+    }
+  }
+  return null;
+};
+
 export const fetchAndPersistAsteroids = async (): Promise<void> => {
   const today = new Date();
   const endDate = new Date(today);
@@ -45,10 +66,14 @@ export const fetchAndPersistAsteroids = async (): Promise<void> => {
 
   const url = `/neo/rest/v1/feed?start_date=${startStr}&end_date=${endStr}&api_key=${NASA_API_KEY}`;
 
-  const response = await httpClient.get<NeoWsFeedResponse>(url);
+  const result = await withRetry(
+    () => httpClient.get<NeoWsFeedResponse>(url),
+    "asteroid"
+  );
 
-  const nearEarthObjects = response.data.near_earth_objects;
+  if (!result) return;
 
+  const nearEarthObjects = result.data.near_earth_objects;
   const allAsteroids = Object.values(nearEarthObjects).flat();
 
   if (!allAsteroids.length) {
