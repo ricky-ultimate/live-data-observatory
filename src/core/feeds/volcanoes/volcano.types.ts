@@ -7,8 +7,11 @@ export interface USGSVolcano {
   obs_abbr: string;
   sent_utc: string;
   sent_unixtime: number;
+  notice_type_cd: string;
+  notice_identifier: string;
   notice_url: string;
   notice_data: string;
+  volcano_cd?: string;
 }
 
 export type USGSVolcanoResponse = USGSVolcano[];
