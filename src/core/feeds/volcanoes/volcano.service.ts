@@ -13,7 +13,28 @@ const CATEGORY = {
   MONITORED: "monitored",
 } as const;
 
-const httpClient = createHttpClient(USGS_BASE_URL, 20000);
+const httpClient = createHttpClient(USGS_BASE_URL, 35000);
+
+const withRetry = async <T>(
+  fn: () => Promise<T>,
+  label: string,
+  retries = 2,
+  delayMs = 8000
+): Promise<T | null> => {
+  for (let attempt = 1; attempt <= retries; attempt++) {
+    try {
+      return await fn();
+    } catch (err: unknown) {
+      const isLast = attempt === retries;
+      logger(
+        "WARN",
+        `[${label}] Attempt ${attempt}/${retries} failed${isLast ? ", giving up" : `, retrying in ${delayMs}ms`}`
+      );
+      if (!isLast) await new Promise((res) => setTimeout(res, delayMs));
+    }
+  }
+  return null;
+};
 
 const normalize = (v: USGSVolcanoResponse[number]): NormalizedVolcano => ({
   externalId: v.vnum,
@@ -78,11 +99,14 @@ const persistAndBroadcast = async (
 };
 
 export const fetchAndPersistElevatedVolcanoes = async (): Promise<void> => {
-  const response = await httpClient.get<USGSVolcanoResponse>(
-    "/hans-public/api/volcano/getElevatedVolcanoes"
+  const result = await withRetry(
+    () => httpClient.get<USGSVolcanoResponse>("/hans-public/api/volcano/getElevatedVolcanoes"),
+    "volcano/elevated"
   );
 
-  const volcanoes = response.data;
+  if (!result) return;
+
+  const volcanoes = result.data;
 
   if (!volcanoes.length) {
     logger("INFO", "[volcano/elevated] No elevated volcanoes in feed");
@@ -106,11 +130,14 @@ export const fetchAndPersistElevatedVolcanoes = async (): Promise<void> => {
 };
 
 export const fetchAndPersistMonitoredVolcanoes = async (): Promise<void> => {
-  const response = await httpClient.get<USGSVolcanoResponse>(
-    "/hans-public/api/volcano/getMonitoredVolcanoes"
+  const result = await withRetry(
+    () => httpClient.get<USGSVolcanoResponse>("/hans-public/api/volcano/getMonitoredVolcanoes"),
+    "volcano/monitored"
   );
 
-  const volcanoes = response.data;
+  if (!result) return;
+
+  const volcanoes = result.data;
 
   if (!volcanoes.length) {
     logger("INFO", "[volcano/monitored] No monitored volcanoes in feed");
