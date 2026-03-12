@@ -4,6 +4,7 @@ import { createHttpClient } from "../../../utils/http.utils";
 import logger from "../../../utils/logger.utils";
 import { broadcast } from "../../../websocket/ws.server";
 import { USGSVolcanoResponse, NormalizedVolcano } from "./volcano.types";
+import { withRetry } from "../../../utils/retry.utils";
 
 const USGS_BASE_URL = "https://volcanoes.usgs.gov";
 const SOURCE = "volcano";
@@ -14,27 +15,6 @@ const CATEGORY = {
 } as const;
 
 const httpClient = createHttpClient(USGS_BASE_URL, 35000);
-
-const withRetry = async <T>(
-  fn: () => Promise<T>,
-  label: string,
-  retries = 2,
-  delayMs = 8000
-): Promise<T | null> => {
-  for (let attempt = 1; attempt <= retries; attempt++) {
-    try {
-      return await fn();
-    } catch (err: unknown) {
-      const isLast = attempt === retries;
-      logger(
-        "WARN",
-        `[${label}] Attempt ${attempt}/${retries} failed${isLast ? ", giving up" : `, retrying in ${delayMs}ms`}`
-      );
-      if (!isLast) await new Promise((res) => setTimeout(res, delayMs));
-    }
-  }
-  return null;
-};
 
 const normalize = (v: USGSVolcanoResponse[number]): NormalizedVolcano => ({
   externalId: v.vnum,
@@ -101,7 +81,7 @@ const persistAndBroadcast = async (
 export const fetchAndPersistElevatedVolcanoes = async (): Promise<void> => {
   const result = await withRetry(
     () => httpClient.get<USGSVolcanoResponse>("/hans-public/api/volcano/getElevatedVolcanoes"),
-    "volcano/elevated"
+    { label: "volcano/elevated", retries: 2, delayMs: 8000 }
   );
 
   if (!result) return;
@@ -132,7 +112,7 @@ export const fetchAndPersistElevatedVolcanoes = async (): Promise<void> => {
 export const fetchAndPersistMonitoredVolcanoes = async (): Promise<void> => {
   const result = await withRetry(
     () => httpClient.get<USGSVolcanoResponse>("/hans-public/api/volcano/getMonitoredVolcanoes"),
-    "volcano/monitored"
+    { label: "volcano/monitored", retries: 2, delayMs: 8000 }
   );
 
   if (!result) return;

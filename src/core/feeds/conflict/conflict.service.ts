@@ -8,6 +8,7 @@ import {
   GDELTArticle,
   NormalizedConflictArticle,
 } from "./conflict.types";
+import { withRetry } from "../../../utils/retry.utils";
 
 const GDELT_BASE_URL = "https://api.gdeltproject.org";
 const SOURCE = "conflict";
@@ -81,38 +82,12 @@ const persistAndBroadcast = async (
   events.forEach((event) => broadcast(`${SOURCE}/${category}`, event));
 };
 
-const withRetry = async <T>(
-  fn: () => Promise<T>,
-  label: string,
-  retries = 2,
-  delayMs = 15000
-): Promise<T | null> => {
-  for (let attempt = 1; attempt <= retries; attempt++) {
-    try {
-      return await fn();
-    } catch (err: unknown) {
-      const isLast = attempt === retries;
-      const status =
-        err && typeof err === "object" && "response" in err
-          ? (err as { response?: { status?: number } }).response?.status
-          : undefined;
-      const waitMs = status === 429 ? 30000 : delayMs;
-      logger(
-        "WARN",
-        `[${label}] Attempt ${attempt}/${retries} failed (status: ${status ?? "timeout"})${isLast ? ", giving up" : `, retrying in ${waitMs}ms`}`
-      );
-      if (!isLast) await new Promise((res) => setTimeout(res, waitMs));
-    }
-  }
-  return null;
-};
-
 export const fetchAndPersistConflictArticles = async (timespan = "15min"): Promise<void> => {
   const url = `/api/v2/doc/doc?query=${CONFLICT_QUERY}&mode=artlist&format=json&maxrecords=250&sort=datedesc&timespan=${timespan}`;
 
   const result = await withRetry(
     () => httpClient.get<GDELTArticleResponse>(url),
-    "conflict/articles"
+    { label: "conflict/articles", retries: 2, delayMs: 15000, on429DelayMs: 30000 }
   );
 
   if (!result) return;

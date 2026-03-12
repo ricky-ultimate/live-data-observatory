@@ -4,6 +4,7 @@ import { createHttpClient } from "../../../utils/http.utils";
 import logger from "../../../utils/logger.utils";
 import { broadcast } from "../../../websocket/ws.server";
 import { NeoWsFeedResponse, NeoWsAsteroid, NormalizedAsteroid } from "./asteroid.types";
+import { withRetry } from "../../../utils/retry.utils";
 
 const NASA_BASE_URL = "https://api.nasa.gov";
 const NASA_API_KEY = "DEMO_KEY";
@@ -35,27 +36,6 @@ const normalize = (asteroid: NeoWsAsteroid): NormalizedAsteroid | null => {
   };
 };
 
-const withRetry = async <T>(
-  fn: () => Promise<T>,
-  label: string,
-  retries = 2,
-  delayMs = 8000
-): Promise<T | null> => {
-  for (let attempt = 1; attempt <= retries; attempt++) {
-    try {
-      return await fn();
-    } catch (err: unknown) {
-      const isLast = attempt === retries;
-      logger(
-        "WARN",
-        `[${label}] Attempt ${attempt}/${retries} failed${isLast ? ", giving up" : `, retrying in ${delayMs}ms`}`
-      );
-      if (!isLast) await new Promise((res) => setTimeout(res, delayMs));
-    }
-  }
-  return null;
-};
-
 export const fetchAndPersistAsteroids = async (): Promise<void> => {
   const today = new Date();
   const endDate = new Date(today);
@@ -68,7 +48,7 @@ export const fetchAndPersistAsteroids = async (): Promise<void> => {
 
   const result = await withRetry(
     () => httpClient.get<NeoWsFeedResponse>(url),
-    "asteroid"
+    { label: "asteroid", retries: 2, delayMs: 8000 }
   );
 
   if (!result) return;
