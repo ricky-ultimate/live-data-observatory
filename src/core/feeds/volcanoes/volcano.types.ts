@@ -19,8 +19,6 @@ export interface NormalizedVolcano {
   vnum: string;
   colorCode: string | null;
   alertLevel: string | null;
-  lat: number | null;
-  lng: number | null;
   state: string | null;
   region: string | null;
   updatedAt: string | null;

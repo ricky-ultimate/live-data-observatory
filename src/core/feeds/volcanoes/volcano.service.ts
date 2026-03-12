@@ -3,9 +3,13 @@ import db from "../../../config/db.config";
 import { createHttpClient } from "../../../utils/http.utils";
 import logger from "../../../utils/logger.utils";
 import { broadcast } from "../../../websocket/ws.server";
-import { USGSVolcanoResponse, NormalizedVolcano, USGSVolcano } from "./volcano.types";
+import {
+  USGSVolcanoResponse,
+  NormalizedVolcano,
+  USGSVolcano,
+} from "./volcano.types";
 import { withRetry } from "../../../utils/retry.utils";
-import https from "https"
+import https from "https";
 import crypto from "crypto";
 
 const USGS_BASE_URL = "https://volcanoes.usgs.gov";
@@ -28,8 +32,6 @@ const normalize = (v: USGSVolcano): NormalizedVolcano => ({
   vnum: v.vnum,
   colorCode: v.color_code ?? null,
   alertLevel: v.alert_level ?? null,
-  lat: null,
-  lng: null,
   state: null,
   region: null,
   updatedAt: v.sent_utc ?? null,
@@ -38,7 +40,7 @@ const normalize = (v: USGSVolcano): NormalizedVolcano => ({
 
 const getLastKnownStates = async (
   category: string,
-  vnums: string[]
+  vnums: string[],
 ): Promise<Map<string, string | null>> => {
   const existing = await db.feedEvent.findMany({
     where: {
@@ -65,7 +67,7 @@ const getLastKnownStates = async (
 
 const persistAndBroadcast = async (
   category: string,
-  events: NormalizedVolcano[]
+  events: NormalizedVolcano[],
 ): Promise<void> => {
   if (!events.length) return;
 
@@ -73,21 +75,25 @@ const persistAndBroadcast = async (
     data: events.map((v) => ({
       source: SOURCE,
       category,
-      lat: v.lat,
-      lng: v.lng,
       payload: v as unknown as Prisma.InputJsonValue,
       recordedAt: v.recordedAt,
     })),
   });
 
-  logger("INFO", `[${SOURCE}/${category}] Persisted ${events.length} state-change events`);
+  logger(
+    "INFO",
+    `[${SOURCE}/${category}] Persisted ${events.length} state-change events`,
+  );
   events.forEach((v) => broadcast(`${SOURCE}/${category}`, v));
 };
 
 export const fetchAndPersistElevatedVolcanoes = async (): Promise<void> => {
   const result = await withRetry(
-    () => httpClient.get<USGSVolcanoResponse>("/hans-public/api/volcano/getElevatedVolcanoes"),
-    { label: "volcano/elevated", retries: 2, delayMs: 8000 }
+    () =>
+      httpClient.get<USGSVolcanoResponse>(
+        "/hans-public/api/volcano/getElevatedVolcanoes",
+      ),
+    { label: "volcano/elevated", retries: 2, delayMs: 8000 },
   );
 
   if (!result) return;
@@ -117,8 +123,11 @@ export const fetchAndPersistElevatedVolcanoes = async (): Promise<void> => {
 
 export const fetchAndPersistMonitoredVolcanoes = async (): Promise<void> => {
   const result = await withRetry(
-    () => httpClient.get<USGSVolcanoResponse>("/hans-public/api/volcano/getMonitoredVolcanoes"),
-    { label: "volcano/monitored", retries: 2, delayMs: 8000 }
+    () =>
+      httpClient.get<USGSVolcanoResponse>(
+        "/hans-public/api/volcano/getMonitoredVolcanoes",
+      ),
+    { label: "volcano/monitored", retries: 2, delayMs: 8000 },
   );
 
   if (!result) return;
@@ -149,7 +158,7 @@ export const fetchAndPersistMonitoredVolcanoes = async (): Promise<void> => {
         const p = e.payload as Record<string, unknown>;
         return typeof p["externalId"] === "string" ? p["externalId"] : null;
       })
-      .filter((id): id is string => id !== null)
+      .filter((id): id is string => id !== null),
   );
 
   const newEntries = normalized.filter((v) => !seenVnums.has(v.externalId));
@@ -157,7 +166,10 @@ export const fetchAndPersistMonitoredVolcanoes = async (): Promise<void> => {
   await persistAndBroadcast(CATEGORY.MONITORED, newEntries);
 
   if (!newEntries.length) {
-    logger("INFO", "[volcano/monitored] No new monitored volcanoes since last refresh");
+    logger(
+      "INFO",
+      "[volcano/monitored] No new monitored volcanoes since last refresh",
+    );
   }
 };
 
